@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { supabase, type Profile, type Product, type UserProduct } from '../services/supabase'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { CacheService } from '../services/cache'
+import { Analytics } from '../services/analytics'
 
 interface AppState {
   // User state
@@ -151,6 +153,16 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       const { user } = get()
       
+      // Check cache first
+      const cachedProduct = await CacheService.getProductByBarcode(barcode)
+      if (cachedProduct) {
+        set({ 
+          currentProduct: cachedProduct,
+          scanCount: get().scanCount + 1
+        })
+        return cachedProduct
+      }
+      
       // Call edge function
       const response = await supabase.functions.invoke('extract-supplement', {
         body: { barcode, user_id: user?.id }
@@ -159,6 +171,13 @@ export const useStore = create<AppState>((set, get) => ({
       if (response.error) throw response.error
       
       const { product, alternatives } = response.data
+      
+      // Cache the result
+      await CacheService.setProductByBarcode(barcode, product)
+      
+      // Track analytics
+      Analytics.trackProductScanned(barcode, true, user?.id)
+      Analytics.trackProductAnalyzed(product.id, product.overall_score, Date.now(), user?.id)
       
       set({ 
         currentProduct: product,
@@ -194,10 +213,10 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
   
-  addToStack: async (productId) => {
+    addToStack: async (productId) => {
     const { user } = get()
     if (!user) return
-    
+
     try {
       await supabase
         .from('user_products')
@@ -205,9 +224,14 @@ export const useStore = create<AppState>((set, get) => ({
         .eq('user_id', user.id)
         .eq('product_id', productId)
       
+      // Track analytics
+      Analytics.trackProductAddedToStack(productId, user.id)
+      
       await get().loadMyStack()
     } catch (error) {
       console.error('Error adding to stack:', error)
+      Analytics.trackError(error as Error, 'addToStack', user?.id)
+      throw error
     }
   },
   
@@ -246,12 +270,16 @@ export const useStore = create<AppState>((set, get) => ({
       
       if (error) throw error
       
+      // Track analytics
+      Analytics.trackOnboardingCompleted(user.id)
+      
       set({ 
         profile: { ...get().profile!, ...data, onboarding_completed: true },
         onboardingStep: 0 
       })
     } catch (error) {
       console.error('Error completing onboarding:', error)
+      Analytics.trackError(error as Error, 'completeOnboarding', user?.id)
       throw error
     }
   },

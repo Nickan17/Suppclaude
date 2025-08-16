@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar'
 import { View, ActivityIndicator } from 'react-native'
 import { Scan, History, User } from 'lucide-react-native'
+import Toast from 'react-native-toast-message'
 
 // Import screens
 import { OnboardingScreen } from './src/screens/Onboarding/OnboardingScreen'
@@ -20,6 +21,7 @@ import { AlternativesScreen } from './src/screens/AlternativesScreen'
 import { useStore } from './src/store'
 import { theme } from './src/theme'
 import { supabase } from './src/services/supabase'
+import { initializeCache } from './src/services/cache'
 
 const Stack = createStackNavigator()
 const Tab = createBottomTabNavigator()
@@ -136,6 +138,9 @@ export default function App() {
   const { setUser, setIsLoading } = useStore()
 
   useEffect(() => {
+    // Initialize cache
+    initializeCache()
+    
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
@@ -157,6 +162,7 @@ export default function App() {
       <NavigationContainer>
         <StatusBar style="dark" />
         <RootNavigator />
+        <Toast />
       </NavigationContainer>
     </SafeAreaProvider>
   )

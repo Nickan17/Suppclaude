@@ -7,6 +7,8 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useNavigation, useRoute } from '@react-navigation/native'
+import Toast from 'react-native-toast-message'
+import * as Haptics from 'expo-haptics'
 import { theme } from '../theme'
 import { ScoreDisplay } from '../components/ScoreDisplay'
 import { useStore } from '../store'
@@ -43,8 +45,28 @@ export const ScoreDisplayScreen: React.FC = () => {
   }
 
   const handleAddToStack = async () => {
-    await addToStack(productId)
-    // TODO: Show success feedback
+    try {
+      await addToStack(productId)
+      
+      // Success feedback
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+      Toast.show({
+        type: 'success',
+        text1: 'Added to Stack! 💪',
+        text2: 'Product added to your supplement stack',
+        position: 'bottom',
+      })
+    } catch (error) {
+      // Error feedback
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
+      Toast.show({
+        type: 'error',
+        text1: 'Failed to Add',
+        text2: 'Please try again',
+        position: 'bottom',
+      })
+      console.error('Error adding to stack:', error)
+    }
   }
 
   const handleFindAlternatives = async () => {

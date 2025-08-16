@@ -1,15 +1,32 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { 
+  parseProductName, 
+  parseBrand, 
+  parseIngredients, 
+  parsePrice,
+  parseServingSize,
+  parseServingsPerContainer,
+  parseSupplementFacts,
+  parseSupplementFactsFromText,
+  parseIngredientsFromText,
+  determineCategory
+} from './lib/parser.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Initialize Supabase client
+// Initialize Supabase client with service role for privileged operations
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!
-const supabase = createClient(supabaseUrl, supabaseKey)
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+})
 
 // API configurations
 const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY')!
@@ -30,7 +47,33 @@ serve(async (req) => {
   }
 
   try {
+    // Verify user authentication
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      throw new Error('Missing authorization header')
+    }
+
+    // Verify JWT token with anon key client
+    const supabaseAuth = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    )
+    
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    )
+    
+    if (authError || !user) {
+      throw new Error('Invalid authentication token')
+    }
+
     const { url, barcode, force_ocr, user_id } = await req.json() as ExtractionRequest
+    
+    // Ensure user_id matches authenticated user
+    if (user_id && user_id !== user.id) {
+      throw new Error('User ID mismatch')
+    }
 
     // 1. Check if product already exists in database
     if (barcode) {
@@ -57,6 +100,15 @@ serve(async (req) => {
       }
     }
 
+    // 3. Validate URL for security
+    if (productUrl) {
+      const validatedUrl = validateProductUrl(productUrl)
+      if (!validatedUrl) {
+        throw new Error('Invalid or unsafe product URL')
+      }
+      productUrl = validatedUrl
+    }
+
     // 3. Scrape product page
     const scrapedData = await scrapeProductPage(productUrl!)
 
@@ -71,6 +123,7 @@ serve(async (req) => {
     }
 
     // 5. Parse and structure the data
+    const servings = parseServingsPerContainer(ingredients + ' ' + JSON.stringify(supplementFacts)) || 1
     const parsedProduct = {
       barcode,
       url: productUrl,
@@ -79,10 +132,10 @@ serve(async (req) => {
       category: determineCategory(scrapedData.name, ingredients),
       ingredients_raw: ingredients,
       supplement_facts: supplementFacts,
-      serving_size: extractServingSize(supplementFacts),
-      servings_per_container: extractServings(supplementFacts),
+      serving_size: parseServingSize(ingredients + ' ' + JSON.stringify(supplementFacts)),
+      servings_per_container: servings,
       price_usd: scrapedData.price,
-      price_per_serving: scrapedData.price ? scrapedData.price / extractServings(supplementFacts) : null,
+      price_per_serving: scrapedData.price ? scrapedData.price / servings : null,
       extraction_method: force_ocr ? 'ocr' : 'web_scrape',
       extraction_confidence: 0.85,
       raw_extraction_data: scrapedData
@@ -145,6 +198,61 @@ serve(async (req) => {
 
 // Helper functions
 
+function validateProductUrl(url: string): string | null {
+  try {
+    const parsedUrl = new URL(url)
+    
+    // 1. Enforce HTTPS only
+    if (parsedUrl.protocol !== 'https:') {
+      return null
+    }
+    
+    // 2. Whitelist allowed domains
+    const allowedDomains = [
+      'amazon.com', 'amazon.co.uk', 'amazon.ca', 'amazon.de',
+      'gnc.com', 'bodybuilding.com', 'iherb.com', 'vitacost.com',
+      'supplementfacts.org', 'examine.com', 'vitaminshoppes.com',
+      'muscleandstrength.com', 'tigerfitness.com', 'a1supplements.com'
+    ]
+    
+    const isAllowed = allowedDomains.some(domain => 
+      parsedUrl.hostname === domain || parsedUrl.hostname.endsWith('.' + domain)
+    )
+    
+    if (!isAllowed) {
+      return null
+    }
+    
+    // 3. Block internal/private IP addresses
+    const hostname = parsedUrl.hostname
+    const ipPatterns = [
+      /^localhost$/i,
+      /^127\./,
+      /^192\.168\./,
+      /^10\./,
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\./,
+      /^169\.254\./,
+      /^::1$/,
+      /^fe80:/,
+      /^fc00:/,
+      /^fd00:/
+    ]
+    
+    if (ipPatterns.some(pattern => pattern.test(hostname))) {
+      return null
+    }
+    
+    // 4. Validate URL structure (must have path)
+    if (parsedUrl.pathname === '/') {
+      return null
+    }
+    
+    return url
+  } catch (error) {
+    return null
+  }
+}
+
 function isStale(lastAnalysis: string | null): boolean {
   if (!lastAnalysis) return true
   const daysSince = (Date.now() - new Date(lastAnalysis).getTime()) / (1000 * 60 * 60 * 24)
@@ -197,12 +305,13 @@ async function scrapeProductPage(url: string) {
   const data = await response.json()
   
   // Extract key information from scraped data
+  const fullText = data.markdown || data.html || ''
   return {
-    brand: extractBrand(data.markdown),
-    name: extractProductName(data.markdown),
-    price: extractPrice(data.markdown),
-    ingredients: extractIngredients(data.markdown),
-    supplementFacts: extractSupplementFacts(data.html),
+    brand: parseBrand(data.html || ''),
+    name: parseProductName(data.html || '', url),
+    price: parsePrice(data.html || ''),
+    ingredients: parseIngredientsFromText(fullText),
+    supplementFacts: parseSupplementFacts(data.html || ''),
     images: data.images || []
   }
 }
@@ -228,8 +337,8 @@ async function extractViaOCR(images: string[]) {
         const text = data.ParsedResults?.[0]?.ParsedText
 
         if (text) {
-          results.facts = extractSupplementFactsFromText(text)
-          results.ingredients = extractIngredientsFromText(text)
+          results.facts = parseSupplementFactsFromText(text)
+          results.ingredients = parseIngredientsFromText(text)
         }
       } catch (error) {
         console.error('OCR extraction failed:', error)
@@ -351,47 +460,4 @@ function determineEvidenceGrade(efficacyScore: number): string {
   return 'F'
 }
 
-// Text extraction helpers (implement these based on actual HTML/text patterns)
-function extractBrand(text: string): string {
-  // Implement brand extraction logic
-  return ''
-}
-
-function extractProductName(text: string): string {
-  // Implement product name extraction logic
-  return ''
-}
-
-function extractPrice(text: string): number | null {
-  // Implement price extraction logic
-  const priceMatch = text.match(/\$(\d+\.?\d*)/)
-  return priceMatch ? parseFloat(priceMatch[1]) : null
-}
-
-function extractIngredients(text: string): string {
-  // Implement ingredients extraction logic
-  return ''
-}
-
-function extractSupplementFacts(html: string): any {
-  // Implement supplement facts extraction from HTML
-  return {}
-}
-
-function extractSupplementFactsFromText(text: string): any {
-  // Implement supplement facts extraction from OCR text
-  return {}
-}
-
-function extractIngredientsFromText(text: string): string {
-  // Implement ingredients extraction from OCR text
-  return ''
-}
-
-function extractServingSize(facts: any): string {
-  return facts?.serving_size || ''
-}
-
-function extractServings(facts: any): number {
-  return facts?.servings_per_container || 1
-}
+// Use the parsing helpers from lib/parser.ts

@@ -9,6 +9,9 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Alert,
+  ActivityIndicator,
+  FlatList,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -17,26 +20,87 @@ import { theme } from '../theme'
 import { BarcodeScanner } from '../components/BarcodeScanner'
 import { useNavigation } from '@react-navigation/native'
 import { useStore } from '../store'
+import { supabase, scoreToGrade, getGradeColor } from '../services/supabase'
+import { validateSearchQuery, validateProductUrl, sanitizeInput } from '../utils/validation'
+import { Analytics } from '../services/analytics'
 
 export const ScannerScreen: React.FC = () => {
   const [showManualEntry, setShowManualEntry] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [productUrl, setProductUrl] = useState('')
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(false)
   const navigation = useNavigation()
-  const { scanHistory } = useStore()
+  const { scanHistory, user } = useStore()
 
   const handleManualEntry = () => {
     setShowManualEntry(true)
   }
 
   const handleSearch = async () => {
-    // TODO: Implement product search
-    console.log('Search:', searchQuery)
+    const validation = validateSearchQuery(searchQuery)
+    if (!validation.isValid) {
+      Alert.alert('Error', validation.error!)
+      return
+    }
+
+    const sanitizedQuery = sanitizeInput(searchQuery)
+
+    setIsLoading(true)
+    try {
+      // First search local database
+      const { data: localResults, error } = await supabase
+        .from('products')
+        .select('*')
+        .ilike('name', `%${sanitizedQuery}%`)
+        .limit(10)
+
+      if (error) throw error
+
+      if (localResults && localResults.length > 0) {
+        // Show search results
+        setSearchResults(localResults)
+        Analytics.trackSearchPerformed(sanitizedQuery, localResults.length, user?.id)
+      } else {
+        // No local results, search web (implement web search API call here)
+        Analytics.trackSearchPerformed(sanitizedQuery, 0, user?.id)
+        Alert.alert('No Results', 'Product not found in our database. Try scanning the barcode instead.')
+      }
+    } catch (error) {
+      console.error('Search error:', error)
+      Alert.alert('Search Failed', 'Unable to search products. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleUrlSubmit = async () => {
-    // TODO: Implement URL analysis
-    console.log('URL:', productUrl)
+    const validation = validateProductUrl(productUrl)
+    if (!validation.isValid) {
+      Alert.alert('Error', validation.error!)
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      // Call the extract-supplement edge function
+      const response = await supabase.functions.invoke('extract-supplement', {
+        body: { url: productUrl }
+      })
+
+      if (response.error) throw response.error
+
+      const { product } = response.data
+      if (product) {
+        setShowManualEntry(false)
+        navigation.navigate('ScoreDisplay' as never, { productId: product.id } as never)
+      }
+    } catch (error) {
+      console.error('URL analysis error:', error)
+      Alert.alert('Analysis Failed', 'Unable to analyze this product URL. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const recentScans = scanHistory.slice(0, 3)
@@ -99,11 +163,56 @@ export const ScannerScreen: React.FC = () => {
                   returnKeyType="search"
                   onSubmitEditing={handleSearch}
                 />
-                <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
-                  <Search size={20} color="white" />
+                <TouchableOpacity 
+                  style={styles.searchButton} 
+                  onPress={handleSearch}
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator size="small" color="white" />
+                  ) : (
+                    <Search size={20} color="white" />
+                  )}
                 </TouchableOpacity>
               </View>
             </View>
+
+            {/* Search Results */}
+            {searchResults.length > 0 && (
+              <View style={styles.searchResultsSection}>
+                <Text style={styles.sectionTitle}>Search Results</Text>
+                <FlatList
+                  data={searchResults}
+                  keyExtractor={(item) => item.id}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={styles.resultCard}
+                      onPress={() => {
+                        setShowManualEntry(false)
+                        navigation.navigate('ScoreDisplay' as never, { productId: item.id } as never)
+                      }}
+                    >
+                      <View style={styles.resultInfo}>
+                        <Text style={styles.resultName} numberOfLines={1}>
+                          {item.name}
+                        </Text>
+                        <Text style={styles.resultBrand}>{item.brand}</Text>
+                      </View>
+                      <View style={styles.resultScore}>
+                        <Text style={[
+                          styles.resultGrade,
+                          { color: getGradeColor(scoreToGrade(item.overall_score || 0)) }
+                        ]}>
+                          {scoreToGrade(item.overall_score || 0)}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                  style={styles.resultsList}
+                  showsVerticalScrollIndicator={false}
+                />
+              </View>
+            )}
 
             {/* Or Divider */}
             <View style={styles.divider}>
@@ -125,12 +234,12 @@ export const ScannerScreen: React.FC = () => {
               />
               <TouchableOpacity
                 onPress={handleUrlSubmit}
-                disabled={!productUrl}
+                disabled={!productUrl || isLoading}
                 activeOpacity={0.8}
               >
                 <LinearGradient
                   colors={
-                    productUrl
+                    productUrl && !isLoading
                       ? [theme.colors.primary, '#FF8E8E']
                       : [theme.colors.border, theme.colors.border]
                   }
@@ -138,7 +247,11 @@ export const ScannerScreen: React.FC = () => {
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                 >
-                  <Text style={styles.analyzeButtonText}>Analyze Product</Text>
+                  {isLoading ? (
+                    <ActivityIndicator color="white" />
+                  ) : (
+                    <Text style={styles.analyzeButtonText}>Analyze Product</Text>
+                  )}
                 </LinearGradient>
               </TouchableOpacity>
             </View>
@@ -284,5 +397,42 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: theme.typography.body.fontSize,
     fontWeight: '600',
+  },
+  searchResultsSection: {
+    marginBottom: theme.spacing.lg,
+  },
+  resultsList: {
+    maxHeight: 200,
+  },
+  resultCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: theme.colors.surface,
+    padding: theme.spacing.md,
+    borderRadius: theme.radii.md,
+    marginBottom: theme.spacing.sm,
+    ...theme.shadows.sm,
+  },
+  resultInfo: {
+    flex: 1,
+    marginRight: theme.spacing.md,
+  },
+  resultName: {
+    fontSize: theme.typography.body.fontSize,
+    fontWeight: '500',
+    color: theme.colors.text,
+    marginBottom: theme.spacing.xs,
+  },
+  resultBrand: {
+    fontSize: theme.typography.caption.fontSize,
+    color: theme.colors.textMuted,
+  },
+  resultScore: {
+    alignItems: 'center',
+  },
+  resultGrade: {
+    fontSize: 20,
+    fontWeight: '700',
   },
 })
