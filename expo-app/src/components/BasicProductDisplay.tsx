@@ -14,12 +14,14 @@ interface BasicProductDisplayProps {
   product: any
   onAddToStack?: () => void
   onFindAlternatives?: () => void
+  onAnalyzeWithAI?: () => void
 }
 
 export const BasicProductDisplay: React.FC<BasicProductDisplayProps> = ({
   product,
   onAddToStack,
   onFindAlternatives,
+  onAnalyzeWithAI,
 }) => {
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -58,29 +60,64 @@ export const BasicProductDisplay: React.FC<BasicProductDisplayProps> = ({
           </View>
         )}
 
-        {product.supplement_facts && (
+        {(product.supplement_facts || product.supplementFacts) && (
           <View style={styles.dataContainer}>
             <Text style={styles.dataLabel}>Nutrition Facts</Text>
             <Text style={styles.factsText} numberOfLines={3}>
-              {product.supplement_facts}
+              {product.supplement_facts || product.supplementFacts?.raw}
             </Text>
           </View>
         )}
       </View>
 
-      {/* Warnings Section */}
-      {product.warnings && product.warnings.length > 0 && (
+      {/* AI Analysis Preview Section */}
+      {product.analysis && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Sparkles size={20} color={theme.colors.primary} />
+            <Text style={styles.sectionTitle}>AI Analysis Results</Text>
+          </View>
+          <View style={styles.analysisContainer}>
+            <View style={styles.analysisRow}>
+              <Text style={styles.analysisLabel}>Overall Score:</Text>
+              <Text style={[styles.analysisScore, { color: theme.colors.primary }]}>
+                {product.analysis.overall_score}/100 ({product.analysis.grade})
+              </Text>
+            </View>
+            <View style={styles.scoresGrid}>
+              <View style={styles.miniScore}>
+                <Text style={styles.miniLabel}>Purity</Text>
+                <Text style={styles.miniValue}>{product.analysis.purity_score}</Text>
+              </View>
+              <View style={styles.miniScore}>
+                <Text style={styles.miniLabel}>Efficacy</Text>
+                <Text style={styles.miniValue}>{product.analysis.efficacy_score}</Text>
+              </View>
+              <View style={styles.miniScore}>
+                <Text style={styles.miniLabel}>Safety</Text>
+                <Text style={styles.miniValue}>{product.analysis.safety_score}</Text>
+              </View>
+              <View style={styles.miniScore}>
+                <Text style={styles.miniLabel}>Value</Text>
+                <Text style={styles.miniValue}>{product.analysis.value_score}</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Clean Warnings Section */}
+      {product.analysis?.warnings && typeof product.analysis.warnings === 'string' && 
+       !product.analysis.warnings.includes('<') && (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <AlertTriangle size={20} color={theme.colors.warning} />
             <Text style={[styles.sectionTitle, { color: theme.colors.warning }]}>
-              Warnings Found
+              AI Analysis Notes
             </Text>
           </View>
           <View style={styles.dataContainer}>
-            {product.warnings.slice(0, 2).map((warning: string, index: number) => (
-              <Text key={index} style={styles.warningText}>• {warning}</Text>
-            ))}
+            <Text style={styles.warningText}>{product.analysis.warnings}</Text>
           </View>
         </View>
       )}
@@ -117,16 +154,18 @@ export const BasicProductDisplay: React.FC<BasicProductDisplayProps> = ({
 
       {/* Action Buttons */}
       <View style={styles.actionContainer}>
-        <TouchableOpacity style={styles.analyzeButton}>
-          <LinearGradient
-            colors={[theme.colors.primary, '#FF8E8E']}
-            style={styles.buttonGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-          >
-            <Text style={styles.buttonText}>Analyze with AI</Text>
-          </LinearGradient>
-        </TouchableOpacity>
+        {!product.analysis && onAnalyzeWithAI && (
+          <TouchableOpacity style={styles.analyzeButton} onPress={onAnalyzeWithAI}>
+            <LinearGradient
+              colors={[theme.colors.primary, '#FF8E8E']}
+              style={styles.buttonGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <Text style={styles.buttonText}>Analyze with AI</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
 
         {onAddToStack && (
           <TouchableOpacity style={styles.secondaryButton} onPress={onAddToStack}>
@@ -281,5 +320,47 @@ const styles = StyleSheet.create({
     color: theme.colors.primary,
     fontSize: 16,
     fontWeight: '600',
+  },
+  analysisContainer: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radii.lg,
+    padding: theme.spacing.lg,
+  },
+  analysisRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  analysisLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.text,
+  },
+  analysisScore: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  scoresGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  miniScore: {
+    width: '23%',
+    alignItems: 'center',
+    backgroundColor: theme.colors.background,
+    borderRadius: theme.radii.md,
+    padding: theme.spacing.sm,
+  },
+  miniLabel: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    marginBottom: theme.spacing.xs,
+  },
+  miniValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.text,
   },
 })

@@ -100,7 +100,8 @@ export const ScoreDisplayScreen: React.FC = () => {
   }
 
   // Use BasicProductDisplay for products without scores
-  const hasScore = product?.overall_score && product.overall_score > 0
+  const hasScore = (product?.overall_score && product.overall_score > 0) || 
+                   (product?.analysis?.overall_score && product.analysis.overall_score > 0)
   
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>

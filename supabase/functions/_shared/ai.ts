@@ -4,7 +4,7 @@
 */
 
 // Default to free model, but allow override via environment variable
-const MODEL = Deno.env.get('AI_MODEL') || 'openai/gpt-oss-20b:free'
+const MODEL = Deno.env.get('AI_MODEL') || 'openai/gpt-3.5-turbo'
 
 // Generic helper to call OpenRouter with retries and strict validation
 export async function callOpenRouterWithRetry(payload: any, retries = 2, backoffMs = 1000): Promise<any> {
@@ -12,6 +12,9 @@ export async function callOpenRouterWithRetry(payload: any, retries = 2, backoff
   if (!OPENROUTER_API_KEY) {
     throw new Error('OPENROUTER_API_KEY not configured')
   }
+  
+  console.log(`[OpenRouter] Using model: ${payload.model}`)
+  console.log(`[OpenRouter] API key available: ${!!OPENROUTER_API_KEY}, key length: ${OPENROUTER_API_KEY.length}`)
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
@@ -25,7 +28,16 @@ export async function callOpenRouterWithRetry(payload: any, retries = 2, backoff
       })
 
       if (!res.ok) {
-        throw new Error(`OpenRouter HTTP error ${res.status}`)
+        const errorText = await res.text()
+        console.error(`[OpenRouter] HTTP ${res.status} error:`, errorText)
+        
+        if (res.status === 401) {
+          throw new Error(`OpenRouter authentication failed. Please check your API key.`)
+        } else if (res.status === 400) {
+          throw new Error(`OpenRouter bad request: ${errorText}`)
+        } else {
+          throw new Error(`OpenRouter HTTP error ${res.status}: ${errorText}`)
+        }
       }
 
       let data: any
@@ -56,6 +68,15 @@ export async function callOpenRouterWithRetry(payload: any, retries = 2, backoff
 
 // Analyze full product and return scores + summary
 export async function analyzeProduct(product: any): Promise<any> {
+  // Truncate large content to fit within token limits
+  const truncatedProduct = {
+    ...product,
+    ingredients_raw: product.ingredients_raw ? 
+      product.ingredients_raw.substring(0, 2000) : product.ingredients_raw,
+    supplementFacts: product.supplementFacts?.raw ? 
+      { raw: product.supplementFacts.raw.substring(0, 3000) } : product.supplementFacts
+  }
+  
   return await callOpenRouterWithRetry({
     model: MODEL,
     messages: [
@@ -74,7 +95,7 @@ export async function analyzeProduct(product: any): Promise<any> {
       },
       {
         role: 'user',
-        content: JSON.stringify(product)
+        content: JSON.stringify(truncatedProduct)
       }
     ]
   })

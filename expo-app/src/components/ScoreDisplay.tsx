@@ -37,7 +37,14 @@ export const ScoreDisplay: React.FC<ScoreDisplayProps> = ({
   const radius = 80
   const strokeWidth = 16
   const circumference = 2 * Math.PI * radius
-  const grade = scoreToGrade(product.overall_score || 0)
+  // Support both direct scores and nested analysis scores
+  const overallScore = product.overall_score || product.analysis?.overall_score || 0
+  const purityScore = product.purity_score || product.analysis?.purity_score || 0
+  const efficacyScore = product.efficacy_score || product.analysis?.efficacy_score || 0
+  const safetyScore = product.safety_score || product.analysis?.safety_score || 0
+  const valueScore = product.value_score || product.analysis?.value_score || 0
+  
+  const grade = scoreToGrade(overallScore)
   const gradeColor = getGradeColor(grade)
 
   useEffect(() => {
@@ -58,12 +65,12 @@ export const ScoreDisplay: React.FC<ScoreDisplayProps> = ({
       ]),
       Animated.parallel([
         Animated.timing(scoreAnim, {
-          toValue: product.overall_score || 0,
+          toValue: overallScore,
           duration: 1200,
           useNativeDriver: false,
         }),
         Animated.timing(donutProgress, {
-          toValue: (product.overall_score || 0) / 100,
+          toValue: overallScore / 100,
           duration: 1200,
           useNativeDriver: false,
         }),
@@ -76,12 +83,12 @@ export const ScoreDisplay: React.FC<ScoreDisplayProps> = ({
 
   const strokeDashoffset = donutProgress.interpolate({
     inputRange: [0, 1],
-    outputRange: [circumference, circumference * (1 - (product.overall_score || 0) / 100)],
+    outputRange: [circumference, circumference * (1 - overallScore / 100)],
   })
 
   const animatedScore = scoreAnim.interpolate({
-    inputRange: [0, product.overall_score || 0],
-    outputRange: ['0', `${product.overall_score || 0}`],
+    inputRange: [0, overallScore],
+    outputRange: ['0', `${overallScore}`],
   })
 
   const SubScore = ({ 
@@ -181,44 +188,44 @@ export const ScoreDisplay: React.FC<ScoreDisplayProps> = ({
             <Text style={[styles.grade, { color: gradeColor }]}>{grade}</Text>
             <Animated.Text style={styles.scoreText}>
               {animatedScore.interpolate({
-                inputRange: [0, product.overall_score || 0],
-                outputRange: ['0', `${Math.round(product.overall_score || 0)}`],
+                inputRange: [0, overallScore],
+                outputRange: ['0', `${Math.round(overallScore)}`],
               })}
             </Animated.Text>
             <Text style={styles.scoreTotal}>/ 100</Text>
           </View>
         </View>
 
-        <Text style={styles.productName}>{product.name}</Text>
-        <Text style={styles.productBrand}>{product.brand}</Text>
+        <Text style={styles.productName}>{product.name || product.title}</Text>
+        <Text style={styles.productBrand}>{product.brand || 'Supplement Analysis'}</Text>
 
         {/* Sub-scores */}
         <View style={styles.subScoresContainer}>
           <SubScore
             icon={Leaf}
             label="Purity"
-            score={product.purity_score || 0}
+            score={purityScore}
             color="#4ECDC4"
             delay={600}
           />
           <SubScore
             icon={Dumbbell}
             label="Efficacy"
-            score={product.efficacy_score || 0}
+            score={efficacyScore}
             color="#B19CD9"
             delay={700}
           />
           <SubScore
             icon={Shield}
             label="Safety"
-            score={product.safety_score || 0}
+            score={safetyScore}
             color="#77C3EC"
             delay={800}
           />
           <SubScore
             icon={DollarSign}
             label="Value"
-            score={product.value_score || 0}
+            score={valueScore}
             color="#FFAB76"
             delay={900}
           />
