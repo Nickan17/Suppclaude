@@ -18,7 +18,7 @@ serve(async (req) => {
 
   // Only allow POST requests
   if (req.method !== 'POST') {
-    return createErrorResponse( 'method_not_allowed' }),
+    return new Response(JSON.stringify({ error: 'method_not_allowed' }),
       { status: 405, headers: corsHeaders }
     )
   }
@@ -31,7 +31,7 @@ serve(async (req) => {
     // OPENROUTER_API_KEY presence will be validated inside shared AI utils
 
     if (!FIRECRAWL_API_KEY) {
-      return createErrorResponse( 'config', message: 'FIRECRAWL_API_KEY not configured' }),
+      return new Response(JSON.stringify({ error: 'config', message: 'FIRECRAWL_API_KEY not configured' }),
         { status: 400, headers: corsHeaders }
       )
     }
@@ -46,14 +46,14 @@ serve(async (req) => {
     try {
       body = await req.json()
     } catch (e) {
-      return createErrorResponse( 'invalid_json', message: 'Invalid JSON in request body' }),
+      return new Response(JSON.stringify({ error: 'invalid_json', message: 'Invalid JSON in request body' }),
         { status: 400, headers: corsHeaders }
       )
     }
 
     // Validate URL parameter
     if (!body?.url || typeof body.url !== 'string') {
-      return createErrorResponse( 'missing_url', message: 'URL parameter is required' }),
+      return new Response(JSON.stringify({ error: 'missing_url', message: 'URL parameter is required' }),
         { status: 400, headers: corsHeaders }
       )
     }
@@ -164,7 +164,8 @@ serve(async (req) => {
         }
       } catch (scrapflyError) {
         console.error(`[firecrawl-extract] Both Firecrawl and Scrapfly failed: ${scrapflyError.message}`)
-        return createErrorResponse( 'scraping_failed', 
+        return new Response(JSON.stringify({ 
+            error: 'scraping_failed', 
             message: 'Unable to scrape the page with any available service',
             details: {
               firecrawl_error: firecrawlError.message,
@@ -189,7 +190,8 @@ serve(async (req) => {
     console.log(`[firecrawl-extract] Parse results - factsTokens: ${factsTokens}, hasIngredients: ${hasIngredients}, hasTitle: ${hasTitle}`)
 
     if (factsTokens < 2 && !hasIngredients && !hasTitle) {
-      return createErrorResponse( 'empty_parse',
+      return new Response(JSON.stringify({ 
+          error: 'empty_parse',
           message: 'Unable to extract meaningful product information from the page',
           _meta: parsed._meta || {}
         }),
@@ -250,7 +252,8 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('[firecrawl-extract] Unexpected error:', error)
-    return createErrorResponse( 'internal_error',
+    return new Response(JSON.stringify({
+        error: 'internal_error',
         message: 'An unexpected error occurred',
         details: error.message
       }),

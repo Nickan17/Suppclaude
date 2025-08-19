@@ -1,6 +1,10 @@
 /*
   Shared environment variable validation utilities
   Provides safe, clear error handling for missing configuration
+  
+  Available environment variables:
+  - OPENROUTER_API_KEY: Required for AI functionality
+  - AI_MODEL: Optional, defaults to 'openai/gpt-oss-20b:free' if not set
 */
 
 export function requireEnv(key: string): string {

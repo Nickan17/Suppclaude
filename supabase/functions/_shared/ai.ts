@@ -3,7 +3,8 @@
   Centralizes OpenRouter interactions, analysis scoring, and helper logic
 */
 
-const MODEL = 'anthropic/claude-3-opus'
+// Default to free model, but allow override via environment variable
+const MODEL = Deno.env.get('AI_MODEL') || 'openai/gpt-oss-20b:free'
 
 // Generic helper to call OpenRouter with retries and strict validation
 export async function callOpenRouterWithRetry(payload: any, retries = 2, backoffMs = 1000): Promise<any> {

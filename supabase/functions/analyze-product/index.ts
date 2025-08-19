@@ -81,7 +81,7 @@ serve(async (req) => {
       })
       .eq('id', product_id)
 
-    return createSuccessResponse({
+    return new Response(JSON.stringify({
       analysis: {
           scores,
           ingredients: ingredientAnalysis,
@@ -95,7 +95,7 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Analysis error:', error)
-    return createErrorResponse( error.message }),
+    return new Response(JSON.stringify({ error: error.message }),
       { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -103,8 +103,6 @@ serve(async (req) => {
     )
   }
 })
-
-  throw new Error('OpenRouter call failed after retries')
 }
 
 // Use shared ingredient parsing via Claude-3 Opus
