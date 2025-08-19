@@ -4,6 +4,29 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { CacheService } from '../services/cache'
 import { Analytics } from '../services/analytics'
 
+// Helper functions to convert form data to database-compatible values
+function convertSupplementCount(value: string): number | null {
+  const map: { [key: string]: number } = {
+    '0': 0,
+    '1-3': 2,
+    '4-6': 5,
+    '7-10': 8,
+    '10+': 12
+  }
+  return map[value] ?? null
+}
+
+function convertYearsTaking(value: string): number | null {
+  const map: { [key: string]: number } = {
+    'new': 0,
+    '<1': 0,
+    '1-3': 2,
+    '3-5': 4,
+    '5+': 6
+  }
+  return map[value] ?? null
+}
+
 interface AppState {
   // User state
   user: any | null
@@ -269,6 +292,21 @@ export const useStore = create<AppState>((set, get) => ({
     
     try {
       console.log('Store: completeOnboarding called for user:', user.id)
+      console.log('Raw onboarding data:', data)
+      
+      // Transform data to match database schema
+      const transformedData = {
+        ...data,
+        // Convert string ranges to integers for database compatibility
+        current_supplement_count: data.current_supplement_count ? 
+          convertSupplementCount(data.current_supplement_count) : null,
+        years_taking_supplements: data.years_taking_supplements ? 
+          convertYearsTaking(data.years_taking_supplements) : null,
+        onboarding_completed: true,
+        onboarding_responses: data, // Keep original responses in JSONB field
+      }
+      
+      console.log('Transformed onboarding data:', transformedData)
       
       // Check if this is a demo user (ID starts with 'demo-user')
       const isDemoUser = user.id.toString().startsWith('demo-user')
@@ -277,14 +315,13 @@ export const useStore = create<AppState>((set, get) => ({
         // For real users, update the database
         const { error } = await supabase
           .from('profiles')
-          .update({
-            ...data,
-            onboarding_completed: true,
-            onboarding_responses: data,
-          })
+          .update(transformedData)
           .eq('id', user.id)
         
-        if (error) throw error
+        if (error) {
+          console.error('Supabase error details:', error)
+          throw error
+        }
       } else {
         console.log('Demo user detected, skipping database update')
       }
@@ -294,7 +331,7 @@ export const useStore = create<AppState>((set, get) => ({
       
       // Update local state regardless of user type
       set({ 
-        profile: { ...get().profile!, ...data, onboarding_completed: true },
+        profile: { ...get().profile!, ...transformedData, onboarding_completed: true },
         onboardingStep: 0 
       })
       

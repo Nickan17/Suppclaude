@@ -103,7 +103,6 @@ serve(async (req) => {
     )
   }
 })
-}
 
 // Use shared ingredient parsing via Claude-3 Opus
 async function parseIngredients(rawIngredients: string): Promise<any[]> {
