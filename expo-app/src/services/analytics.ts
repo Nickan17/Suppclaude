@@ -19,7 +19,7 @@ export class Analytics {
     }, this.flushInterval)
 
     // Flush on app state change
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && window.addEventListener) {
       window.addEventListener('beforeunload', () => {
         this.flush()
       })
@@ -33,7 +33,7 @@ export class Analytics {
         ...properties,
         timestamp: new Date().toISOString(),
         platform: 'mobile',
-        user_agent: navigator?.userAgent || 'unknown',
+        user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
       },
       user_id: userId
     }
@@ -42,7 +42,7 @@ export class Analytics {
     this.queue.push(event)
 
     // Console log for development
-    if (__DEV__) {
+    if (process.env.NODE_ENV === 'development') {
       console.log('[Analytics]', eventType, properties)
     }
 
@@ -59,6 +59,12 @@ export class Analytics {
     this.queue = []
 
     try {
+      // Temporarily disable analytics to fix app issues
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Analytics] Would send events:', eventsToSend.length)
+        return
+      }
+
       const { error } = await supabase
         .from('analytics_events')
         .insert(eventsToSend)

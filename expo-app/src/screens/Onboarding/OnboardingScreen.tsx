@@ -6,8 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   Dimensions,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -63,6 +61,8 @@ export const OnboardingScreen: React.FC = () => {
 
   const handleComplete = async () => {
     try {
+      console.log('OnboardingScreen: handleComplete called')
+      
       // Flatten the form data
       const flatData = {
         ...formData.demographics,
@@ -71,11 +71,20 @@ export const OnboardingScreen: React.FC = () => {
         ...formData.preferences,
         current_stack: formData.stack,
       }
-
+      
+      console.log('OnboardingScreen: Sending data to completeOnboarding:', flatData)
+      
       await completeOnboarding(flatData)
-      navigation.navigate('Main' as never)
+      console.log('OnboardingScreen: completeOnboarding successful, navigating to Main')
+      
+      // Force navigation to Main screen
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Main' as never }],
+      })
     } catch (error) {
       console.error('Onboarding error:', error)
+      alert('Error completing onboarding. Please try again.')
     }
   }
 
@@ -83,10 +92,14 @@ export const OnboardingScreen: React.FC = () => {
   const progress = ((currentStep + 1) / STEPS.length) * 100
 
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.container}
+    <SafeAreaView style={{flex: 1, height: '100%', backgroundColor: theme.colors.background}}>
+      <ScrollView 
+        style={{flex: 1, width: '100%'}}
+        contentContainerStyle={{paddingBottom: 100}}
+        showsVerticalScrollIndicator={true}
+        keyboardShouldPersistTaps="handled"
+        bounces={true}
+        alwaysBounceVertical={true}
       >
         {/* Header */}
         <View style={styles.header}>
@@ -112,29 +125,41 @@ export const OnboardingScreen: React.FC = () => {
         </View>
 
         {/* Content */}
-        <ScrollView 
-          style={styles.content}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
+        <View style={styles.content}>
           <Text style={styles.title}>{STEPS[currentStep].title}</Text>
           
           <CurrentStepComponent
             data={formData[STEPS[currentStep].id as keyof typeof formData]}
             onNext={handleNext}
           />
-        </ScrollView>
+        </View>
 
         {/* Skip button */}
         {currentStep === STEPS.length - 1 && (
           <TouchableOpacity 
-            style={styles.skipButton}
-            onPress={handleComplete}
+            style={{
+              alignItems: 'center',
+              paddingVertical: 16,
+              marginTop: 20,
+              marginBottom: 40,
+            }}
+            onPress={() => {
+              console.log('Skip button pressed, forcing navigation to Main')
+              // Force navigation to Main screen
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Main' as never }],
+              })
+            }}
           >
-            <Text style={styles.skipButtonText}>Skip this step</Text>
+            <Text style={{
+              fontSize: 16,
+              color: theme.colors.textMuted,
+              textDecorationLine: 'underline',
+            }}>Skip this step</Text>
           </TouchableOpacity>
         )}
-      </KeyboardAvoidingView>
+      </ScrollView>
     </SafeAreaView>
   )
 }
@@ -143,6 +168,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  scrollContent: {
+    minHeight: '100%',
+    paddingBottom: theme.spacing.xxl,
   },
   header: {
     paddingHorizontal: theme.spacing.lg,
@@ -175,7 +207,6 @@ const styles = StyleSheet.create({
     color: theme.colors.primary,
   },
   content: {
-    flex: 1,
     paddingHorizontal: theme.spacing.lg,
   },
   title: {

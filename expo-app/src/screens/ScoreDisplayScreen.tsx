@@ -11,21 +11,30 @@ import Toast from 'react-native-toast-message'
 import * as Haptics from 'expo-haptics'
 import { theme } from '../theme'
 import { ScoreDisplay } from '../components/ScoreDisplay'
+import { BasicProductDisplay } from '../components/BasicProductDisplay'
 import { useStore } from '../store'
 import { supabase } from '../services/supabase'
 
 export const ScoreDisplayScreen: React.FC = () => {
   const navigation = useNavigation()
   const route = useRoute()
-  const { productId } = route.params as { productId: string }
+  const { productId, product: routeProduct } = route.params as { productId?: string; product?: any }
   const { addToStack, findAlternatives } = useStore()
   
   const [product, setProduct] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    loadProduct()
-  }, [productId])
+    if (routeProduct) {
+      setProduct(routeProduct)
+      setIsLoading(false)
+    } else if (productId) {
+      loadProduct()
+    } else {
+      // No product data, return to previous screen
+      navigation.goBack()
+    }
+  }, [productId, routeProduct])
 
   const loadProduct = async () => {
     try {
@@ -83,18 +92,33 @@ export const ScoreDisplayScreen: React.FC = () => {
   }
 
   if (!product) {
-    return null
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    )
   }
 
+  // Use BasicProductDisplay for products without scores
+  const hasScore = product?.overall_score && product.overall_score > 0
+  
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <ScoreDisplay
+      {hasScore ? (
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <ScoreDisplay
+            product={product}
+            onAddToStack={handleAddToStack}
+            onFindAlternatives={handleFindAlternatives}
+          />
+        </ScrollView>
+      ) : (
+        <BasicProductDisplay
           product={product}
           onAddToStack={handleAddToStack}
           onFindAlternatives={handleFindAlternatives}
         />
-      </ScrollView>
+      )}
     </SafeAreaView>
   )
 }

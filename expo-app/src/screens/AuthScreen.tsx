@@ -21,7 +21,24 @@ export const AuthScreen: React.FC = () => {
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   
-  const { login, signup } = useStore()
+  const { login, signup, setUser, setProfile } = useStore()
+
+  const handleSkip = () => {
+    // Create a demo user for testing
+    const demoUser = {
+      id: 'demo-user-' + Date.now(),
+      email: 'demo@supplementiq.com',
+    }
+    
+    const demoProfile = {
+      id: demoUser.id,
+      email: demoUser.email,
+      onboarding_completed: false,
+    }
+    
+    setUser(demoUser)
+    setProfile(demoProfile)
+  }
 
   const handleAuth = async () => {
     if (!email || !password) {
@@ -31,12 +48,18 @@ export const AuthScreen: React.FC = () => {
 
     setIsLoading(true)
     try {
+      console.log('Starting auth process...')
       if (isLogin) {
+        console.log('Attempting login...')
         await login(email, password)
+        console.log('Login successful!')
       } else {
+        console.log('Attempting signup...')
         await signup(email, password)
+        console.log('Signup successful!')
       }
     } catch (error: any) {
+      console.error('Auth error:', error)
       Alert.alert(
         'Error',
         error.message || 'An error occurred. Please try again.'
@@ -112,6 +135,16 @@ export const AuthScreen: React.FC = () => {
                 {isLogin
                   ? "Don't have an account? Sign up"
                   : 'Already have an account? Sign in'}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Skip Button for Testing */}
+            <TouchableOpacity
+              onPress={handleSkip}
+              style={styles.skipButton}
+            >
+              <Text style={styles.skipText}>
+                🚀 Skip for Demo (Test Mode)
               </Text>
             </TouchableOpacity>
           </View>
@@ -207,6 +240,21 @@ const styles = StyleSheet.create({
   switchText: {
     fontSize: theme.typography.caption.fontSize,
     color: theme.colors.primary,
+  },
+  skipButton: {
+    alignItems: 'center',
+    marginTop: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: theme.radii.md,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primary + '10',
+  },
+  skipText: {
+    fontSize: theme.typography.caption.fontSize,
+    color: theme.colors.primary,
+    fontWeight: '600',
   },
   features: {
     gap: theme.spacing.md,

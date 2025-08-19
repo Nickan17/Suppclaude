@@ -5,7 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
 } from 'react-native'
-import Slider from '@react-native-community/slider'
+import { WebCompatibleSlider as Slider } from '../../../components/WebCompatibleSlider'
 import { LinearGradient } from 'expo-linear-gradient'
 import { theme } from '../../../theme'
 

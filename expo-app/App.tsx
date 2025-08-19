@@ -1,15 +1,17 @@
 import React, { useEffect } from 'react'
+import './app.css' // Import CSS for web scrolling fix
 import { NavigationContainer } from '@react-navigation/native'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { createStackNavigator } from '@react-navigation/stack'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar'
 import { View, ActivityIndicator } from 'react-native'
-import { Scan, History, User } from 'lucide-react-native'
+import { Home, Scan, History, User } from 'lucide-react-native'
 import Toast from 'react-native-toast-message'
 
 // Import screens
 import { OnboardingScreen } from './src/screens/Onboarding/OnboardingScreen'
+import { HomeScreen } from './src/screens/HomeScreen'
 import { ScannerScreen } from './src/screens/ScannerScreen'
 import { ScoreDisplayScreen } from './src/screens/ScoreDisplayScreen'
 import { HistoryScreen } from './src/screens/HistoryScreen'
@@ -54,6 +56,15 @@ function MainTabs() {
       }}
     >
       <Tab.Screen
+        name="Home"
+        component={HomeScreen}
+        options={{
+          tabBarLabel: 'Home',
+          tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
+          headerShown: false,
+        }}
+      />
+      <Tab.Screen
         name="Scanner"
         component={ScannerScreen}
         options={{
@@ -87,6 +98,13 @@ function MainTabs() {
 // Root navigator
 function RootNavigator() {
   const { isAuthenticated, profile, isLoading } = useStore()
+
+  // Debug logging
+  console.log('RootNavigator state:', {
+    isAuthenticated,
+    profile: profile ? { id: profile.id, onboarding_completed: profile.onboarding_completed } : null,
+    isLoading,
+  })
 
   if (isLoading) {
     return (

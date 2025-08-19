@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   TextInput,
 } from 'react-native'
-import Slider from '@react-native-community/slider'
+import { WebCompatibleSlider as Slider } from '../../../components/WebCompatibleSlider'
 import { LinearGradient } from 'expo-linear-gradient'
 import { theme } from '../../../theme'
 
@@ -54,7 +54,7 @@ export const DemographicsStep: React.FC<DemographicsStepProps> = ({ data, onNext
   const isComplete = form.gender && form.activity_level
 
   return (
-    <View style={styles.container}>
+    <View style={{paddingBottom: 80}}>
       {/* Age */}
       <View style={styles.section}>
         <Text style={styles.label}>Age</Text>
@@ -170,6 +170,7 @@ export const DemographicsStep: React.FC<DemographicsStepProps> = ({ data, onNext
         onPress={handleNext}
         disabled={!isComplete}
         activeOpacity={0.8}
+        style={{marginTop: 40, marginBottom: 60}}
       >
         <LinearGradient
           colors={
@@ -177,11 +178,15 @@ export const DemographicsStep: React.FC<DemographicsStepProps> = ({ data, onNext
               ? [theme.colors.primary, '#FF8E8E']
               : [theme.colors.border, theme.colors.border]
           }
-          style={styles.nextButton}
+          style={{
+            borderRadius: 50,
+            paddingVertical: 16,
+            alignItems: 'center',
+          }}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
         >
-          <Text style={styles.nextButtonText}>Continue</Text>
+          <Text style={{color: 'white', fontSize: 16, fontWeight: '600'}}>Continue</Text>
         </LinearGradient>
       </TouchableOpacity>
     </View>

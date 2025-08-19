@@ -72,6 +72,7 @@ export const StackAuditStep: React.FC<StackAuditStepProps> = ({ data, onNext }) 
   }
 
   const handleNext = () => {
+    console.log('StackAuditStep: handleNext called with form data:', form)
     onNext(form)
   }
 
@@ -213,14 +214,31 @@ export const StackAuditStep: React.FC<StackAuditStepProps> = ({ data, onNext }) 
       <TouchableOpacity
         onPress={handleNext}
         activeOpacity={0.8}
+        style={{
+          marginTop: 40,
+          marginBottom: 60,
+        }}
       >
         <LinearGradient
           colors={[theme.colors.primary, '#FF8E8E']}
-          style={styles.nextButton}
+          style={{
+            borderRadius: 50,
+            paddingVertical: 18,
+            alignItems: 'center',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.2,
+            shadowRadius: 4,
+            elevation: 3,
+          }}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
         >
-          <Text style={styles.nextButtonText}>Complete Setup</Text>
+          <Text style={{
+            color: 'white',
+            fontSize: 18,
+            fontWeight: '600',
+          }}>Complete Setup</Text>
         </LinearGradient>
       </TouchableOpacity>
     </ScrollView>

@@ -96,12 +96,21 @@ export const useStore = create<AppState>((set, get) => ({
           .insert({
             id: data.user.id,
             email: data.user.email,
+            onboarding_completed: false,
           })
         
         if (profileError) throw profileError
+        
+        set({ 
+          user: data.user, 
+          isAuthenticated: true,
+          profile: {
+            id: data.user.id,
+            email: data.user.email,
+            onboarding_completed: false,
+          } as Profile
+        })
       }
-      
-      set({ user: data.user, isAuthenticated: true })
     } catch (error) {
       console.error('Signup error:', error)
       throw error
@@ -259,24 +268,37 @@ export const useStore = create<AppState>((set, get) => ({
     if (!user) return
     
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          ...data,
-          onboarding_completed: true,
-          onboarding_responses: data,
-        })
-        .eq('id', user.id)
+      console.log('Store: completeOnboarding called for user:', user.id)
       
-      if (error) throw error
+      // Check if this is a demo user (ID starts with 'demo-user')
+      const isDemoUser = user.id.toString().startsWith('demo-user')
+      
+      if (!isDemoUser) {
+        // For real users, update the database
+        const { error } = await supabase
+          .from('profiles')
+          .update({
+            ...data,
+            onboarding_completed: true,
+            onboarding_responses: data,
+          })
+          .eq('id', user.id)
+        
+        if (error) throw error
+      } else {
+        console.log('Demo user detected, skipping database update')
+      }
       
       // Track analytics
       Analytics.trackOnboardingCompleted(user.id)
       
+      // Update local state regardless of user type
       set({ 
         profile: { ...get().profile!, ...data, onboarding_completed: true },
         onboardingStep: 0 
       })
+      
+      console.log('Store: onboarding completed successfully')
     } catch (error) {
       console.error('Error completing onboarding:', error)
       Analytics.trackError(error as Error, 'completeOnboarding', user?.id)
@@ -287,6 +309,12 @@ export const useStore = create<AppState>((set, get) => ({
   loadScanHistory: async () => {
     const { user } = get()
     if (!user) return
+
+    // Skip for demo users to avoid invalid UUID errors
+    if (user.id.toString().startsWith('demo-user')) {
+      console.log('Demo user detected, skipping loadScanHistory DB query')
+      return
+    }
     
     try {
       const { data } = await supabase
@@ -311,6 +339,12 @@ export const useStore = create<AppState>((set, get) => ({
   loadMyStack: async () => {
     const { user } = get()
     if (!user) return
+
+    // Skip for demo users
+    if (user.id.toString().startsWith('demo-user')) {
+      console.log('Demo user detected, skipping loadMyStack DB query')
+      return
+    }
     
     try {
       const { data } = await supabase

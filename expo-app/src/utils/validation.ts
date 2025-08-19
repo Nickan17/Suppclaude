@@ -153,7 +153,7 @@ export const validateHeight = (height: number): { isValid: boolean; error?: stri
 }
 
 // Generic validation schema type
-export interface ValidationSchema<T> {
+export type ValidationSchema<T> = {
   [K in keyof T]: (value: T[K]) => { isValid: boolean; error?: string }
 }
 
