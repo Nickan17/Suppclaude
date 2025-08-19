@@ -100,18 +100,31 @@ export const ScannerScreen: React.FC = () => {
       // Check if we got successful data back
       if (response.data && (response.data.title || response.data.ingredients || response.data.analysis)) {
         console.log('Analysis successful, got data:', response.data)
+        console.log('Analysis details:', response.data.analysis)
         
         // Create a temporary product object for display
         const productData = {
           id: 'temp-' + Date.now(),
           name: response.data.title || 'Unknown Product',
+          title: response.data.title,
           url: productUrl,
+          ingredients: response.data.ingredients,
           ingredients_raw: response.data.ingredients_raw,
-          supplement_facts: response.data.supplementFacts,
-          overall_score: response.data.analysis?.overall_score,
+          supplement_facts: response.data.supplementFacts?.raw,
+          supplementFacts: response.data.supplementFacts,
+          warnings: response.data.warnings,
+          // Copy over analysis scores to both locations for compatibility
+          overall_score: response.data.analysis?.overall_score || 0,
+          purity_score: response.data.analysis?.purity_score || 0,
+          efficacy_score: response.data.analysis?.efficacy_score || 0,
+          safety_score: response.data.analysis?.safety_score || 0,
+          value_score: response.data.analysis?.value_score || 0,
           analysis: response.data.analysis,
-          ...response.data
+          _meta: response.data._meta
         }
+        
+        console.log('Final product data being passed:', productData)
+        console.log('Has overall score?', productData.overall_score, 'Analysis?', !!productData.analysis)
         
         setShowManualEntry(false)
         // Navigate to score display with the analyzed data

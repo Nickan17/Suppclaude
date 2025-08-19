@@ -103,6 +103,11 @@ export const ScoreDisplayScreen: React.FC = () => {
   const hasScore = (product?.overall_score && product.overall_score > 0) || 
                    (product?.analysis?.overall_score && product.analysis.overall_score > 0)
   
+  console.log('ScoreDisplayScreen - Product received:', product)
+  console.log('ScoreDisplayScreen - Has score check:', hasScore)
+  console.log('ScoreDisplayScreen - Overall score:', product?.overall_score)
+  console.log('ScoreDisplayScreen - Analysis overall score:', product?.analysis?.overall_score)
+  
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       {hasScore ? (
