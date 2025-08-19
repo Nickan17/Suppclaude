@@ -174,7 +174,8 @@ npx expo build:web
 ## 🔑 Environment Variables
 
 ### Required for Edge Functions
-- `FIRECRAWL_API_KEY`: Web scraping service
+- `FIRECRAWL_API_KEY`: Web scraping service (primary)
+- `SCRAPFLY_API_KEY`: Fallback web scraping service when Firecrawl fails
 - `OCR_SPACE_API_KEY`: OCR for supplement facts images
 - `OPENROUTER_API_KEY`: AI analysis service
 - `SUPABASE_URL`: Your Supabase project URL

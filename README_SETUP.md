@@ -185,3 +185,20 @@ Proprietary - All rights reserved
 ---
 
 Built with ❤️ to help people stop wasting money on ineffective supplements.
+### 5. Scrapfly API Key (Optional but Recommended)
+
+**Scrapfly** provides a fallback web scraping service when Firecrawl fails or is unavailable.
+
+1. **Get API Key**: Sign up at https://scrapfly.io and get your API key
+2. **Purpose**: Used as fallback when Firecrawl scraping fails or returns minimal content
+3. **Setup**: Add to your environment variables alongside other API keys
+
+**Environment Variables**:
+```bash
+# Add to your Supabase secrets
+npx supabase secrets set \
+  SCRAPFLY_API_KEY=<your-scrapfly-key> \
+  --project-ref <YOUR_PROJECT_REF>
+```
+
+**Note**: While optional, having SCRAPFLY_API_KEY configured ensures your app can still scrape supplement pages even if Firecrawl is temporarily unavailable or fails on specific URLs.

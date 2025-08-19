@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { requireEnv } from "../_shared/env.ts"
 import { parseIngredientsAI, callOpenRouterWithRetry } from '../_shared/ai.ts'
 
 const corsHeaders = {
@@ -80,9 +81,8 @@ serve(async (req) => {
       })
       .eq('id', product_id)
 
-    return new Response(
-      JSON.stringify({
-        analysis: {
+    return createSuccessResponse({
+      analysis: {
           scores,
           ingredients: ingredientAnalysis,
           scientific_evidence: pubmedResults,
@@ -95,8 +95,7 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Analysis error:', error)
-    return new Response(
-      JSON.stringify({ error: error.message }),
+    return createErrorResponse( error.message }),
       { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -105,46 +104,6 @@ serve(async (req) => {
   }
 })
 
-// Helper: robust OpenRouter call with validation & retries
-async function callOpenRouterWithRetry(payload: any, retries = 2, backoffMs = 1000): Promise<any> {
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      })
-
-      if (!res.ok) {
-        throw new Error(`OpenRouter HTTP error ${res.status}`)
-      }
-
-      let data: any
-      try {
-        data = await res.json()
-      } catch (_) {
-        throw new Error('OpenRouter response was not valid JSON')
-      }
-
-      const content = data?.choices?.[0]?.message?.content
-      if (!content || typeof content !== 'string') {
-        throw new Error('OpenRouter response missing expected content field')
-      }
-
-      try {
-        return JSON.parse(content)
-      } catch (_) {
-        throw new Error('Malformed JSON content from OpenRouter')
-      }
-    } catch (err) {
-      console.error(`[openrouter] Attempt ${attempt + 1} failed:`, err)
-      if (attempt >= retries) throw err
-      await new Promise(r => setTimeout(r, backoffMs * (attempt + 1)))
-    }
-  }
   throw new Error('OpenRouter call failed after retries')
 }
 
