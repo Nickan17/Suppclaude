@@ -83,21 +83,53 @@ export const ScannerScreen: React.FC = () => {
 
     setIsLoading(true)
     try {
-      // Call the extract-supplement edge function
-      const response = await supabase.functions.invoke('extract-supplement', {
+      console.log('Starting URL analysis for:', productUrl)
+      
+      // Call the firecrawl-extract edge function for URL analysis
+      const response = await supabase.functions.invoke('firecrawl-extract', {
         body: { url: productUrl }
       })
 
-      if (response.error) throw response.error
+      console.log('Response from firecrawl-extract:', response)
 
-      const { product } = response.data
-      if (product) {
+      if (response.error) {
+        console.error('API error:', response.error)
+        throw response.error
+      }
+
+      // Check if we got successful data back
+      if (response.data && (response.data.title || response.data.ingredients || response.data.analysis)) {
+        console.log('Analysis successful, got data:', response.data)
+        
+        // Create a temporary product object for display
+        const productData = {
+          id: 'temp-' + Date.now(),
+          name: response.data.title || 'Unknown Product',
+          url: productUrl,
+          ingredients_raw: response.data.ingredients_raw,
+          supplement_facts: response.data.supplementFacts,
+          overall_score: response.data.analysis?.overall_score,
+          analysis: response.data.analysis,
+          ...response.data
+        }
+        
         setShowManualEntry(false)
-        navigation.navigate('ScoreDisplay' as never, { productId: product.id } as never)
+        // Navigate to score display with the analyzed data
+        navigation.navigate('ScoreDisplay' as never, { 
+          product: productData,
+          fromUrl: true 
+        } as never)
+      } else {
+        throw new Error('No product data returned from analysis')
       }
     } catch (error) {
       console.error('URL analysis error:', error)
-      Alert.alert('Analysis Failed', 'Unable to analyze this product URL. Please try again.')
+      Alert.alert(
+        'Analysis Failed', 
+        error.message?.includes('Unable to extract') 
+          ? 'Could not extract product information from this URL. Please try a direct product page.'
+          : 'Unable to analyze this product URL. Please try again.'
+      )
     } finally {
       setIsLoading(false)
     }
