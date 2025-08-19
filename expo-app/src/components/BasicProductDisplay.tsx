@@ -7,8 +7,35 @@ import {
   TouchableOpacity,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
-import { Beaker, Package, AlertTriangle, Sparkles } from 'lucide-react-native'
+import { Beaker, Package, AlertTriangle, Sparkles, Star, Award } from 'lucide-react-native'
 import { theme } from '../theme'
+
+// Grade color mapping for beautiful visual feedback
+const getGradeColor = (grade?: string) => {
+  if (!grade) return theme.colors.textMuted
+  const gradeLevel = grade.replace(/[+\-]/g, '')
+  switch (gradeLevel) {
+    case 'A': return '#10B981' // Emerald green
+    case 'B': return '#3B82F6' // Blue
+    case 'C': return '#F59E0B' // Amber
+    case 'D': return '#EF4444' // Red
+    case 'F': return '#7F1D1D' // Dark red
+    default: return theme.colors.textMuted
+  }
+}
+
+const getGradeBackground = (grade?: string) => {
+  if (!grade) return theme.colors.surface
+  const gradeLevel = grade.replace(/[+\-]/g, '')
+  switch (gradeLevel) {
+    case 'A': return '#ECFDF5' // Light emerald
+    case 'B': return '#EFF6FF' // Light blue
+    case 'C': return '#FFFBEB' // Light amber
+    case 'D': return '#FEF2F2' // Light red
+    case 'F': return '#FEF2F2' // Light red
+    default: return theme.colors.surface
+  }
+}
 
 interface BasicProductDisplayProps {
   product: any
@@ -27,11 +54,26 @@ export const BasicProductDisplay: React.FC<BasicProductDisplayProps> = ({
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Header */}
       <View style={styles.header}>
+        {/* Grade Badge - Only show if we have analysis */}
+        {product.analysis?.grade && (
+          <View style={[styles.gradeBadge, { backgroundColor: getGradeBackground(product.analysis.grade) }]}>
+            <Text style={[styles.gradeText, { color: getGradeColor(product.analysis.grade) }]}>
+              {product.analysis.grade}
+            </Text>
+            <Award size={20} color={getGradeColor(product.analysis.grade)} />
+            <Text style={[styles.gradeLabel, { color: getGradeColor(product.analysis.grade) }]}>
+              Score: {product.analysis.overall_score}/100
+            </Text>
+          </View>
+        )}
+        
         <View style={styles.iconContainer}>
           <Package size={32} color={theme.colors.primary} />
         </View>
         <Text style={styles.title}>{product.name || product.title}</Text>
-        <Text style={styles.subtitle}>Product Analysis</Text>
+        <Text style={styles.subtitle}>
+          {product.analysis ? 'AI Analysis Complete' : 'Product Analysis'}
+        </Text>
       </View>
 
       {/* Extracted Data Section */}
@@ -86,29 +128,55 @@ export const BasicProductDisplay: React.FC<BasicProductDisplayProps> = ({
             </View>
             <View style={styles.scoresGrid}>
               <View style={styles.miniScore}>
+                <View style={[styles.scoreIcon, { backgroundColor: '#4ECDC420' }]}>
+                  <Beaker size={16} color="#4ECDC4" />
+                </View>
                 <Text style={styles.miniLabel}>Purity</Text>
-                <Text style={styles.miniValue}>{product.analysis.purity_score}</Text>
+                <Text style={[styles.miniValue, { color: '#4ECDC4' }]}>{product.analysis.purity_score}</Text>
               </View>
               <View style={styles.miniScore}>
+                <View style={[styles.scoreIcon, { backgroundColor: '#B19CD920' }]}>
+                  <Star size={16} color="#B19CD9" />
+                </View>
                 <Text style={styles.miniLabel}>Efficacy</Text>
-                <Text style={styles.miniValue}>{product.analysis.efficacy_score}</Text>
+                <Text style={[styles.miniValue, { color: '#B19CD9' }]}>{product.analysis.efficacy_score}</Text>
               </View>
               <View style={styles.miniScore}>
+                <View style={[styles.scoreIcon, { backgroundColor: '#77C3EC20' }]}>
+                  <AlertTriangle size={16} color="#77C3EC" />
+                </View>
                 <Text style={styles.miniLabel}>Safety</Text>
-                <Text style={styles.miniValue}>{product.analysis.safety_score}</Text>
+                <Text style={[styles.miniValue, { color: '#77C3EC' }]}>{product.analysis.safety_score}</Text>
               </View>
               <View style={styles.miniScore}>
+                <View style={[styles.scoreIcon, { backgroundColor: '#FFAB7620' }]}>
+                  <Package size={16} color="#FFAB76" />
+                </View>
                 <Text style={styles.miniLabel}>Value</Text>
-                <Text style={styles.miniValue}>{product.analysis.value_score}</Text>
+                <Text style={[styles.miniValue, { color: '#FFAB76' }]}>{product.analysis.value_score}</Text>
               </View>
             </View>
           </View>
         </View>
       )}
 
+      {/* AI Summary Section */}
+      {product.analysis?.summary && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Sparkles size={20} color="#10B981" />
+            <Text style={[styles.sectionTitle, { color: '#10B981' }]}>
+              AI Summary
+            </Text>
+          </View>
+          <View style={styles.dataContainer}>
+            <Text style={styles.summaryText}>{product.analysis.summary}</Text>
+          </View>
+        </View>
+      )}
+
       {/* Clean Warnings Section */}
-      {product.analysis?.warnings && typeof product.analysis.warnings === 'string' && 
-       !product.analysis.warnings.includes('<') && (
+      {product.analysis?.warnings && (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <AlertTriangle size={20} color={theme.colors.warning} />
@@ -117,7 +185,11 @@ export const BasicProductDisplay: React.FC<BasicProductDisplayProps> = ({
             </Text>
           </View>
           <View style={styles.dataContainer}>
-            <Text style={styles.warningText}>{product.analysis.warnings}</Text>
+            <Text style={styles.warningText}>
+              {Array.isArray(product.analysis.warnings) 
+                ? product.analysis.warnings.join(' ')
+                : product.analysis.warnings}
+            </Text>
           </View>
         </View>
       )}
@@ -352,6 +424,22 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
     borderRadius: theme.radii.md,
     padding: theme.spacing.sm,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  scoreIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: theme.spacing.xs,
   },
   miniLabel: {
     fontSize: 12,
@@ -363,4 +451,40 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: theme.colors.text,
   },
+  gradeBadge: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.radii.full,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+    zIndex: 10,
+  },
+  gradeText: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginRight: theme.spacing.xs,
+  },
+  gradeLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: theme.spacing.xs,
+  },
+  summaryText: {
+    fontSize: 14,
+    color: theme.colors.text,
+    lineHeight: 22,
+    fontStyle: 'italic',
+  },
 })
+

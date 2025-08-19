@@ -175,18 +175,33 @@ export async function parseProductPage(
     }
   }
 
-  // Look for warnings
+  // Look for warnings - improved to avoid HTML garbage
   const warnings: string[] = []
+  const cleanText = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
+  
   const warningPatterns = [
-    /warning\s*:?\s*([^.]+\.)/gi,
-    /caution\s*:?\s*([^.]+\.)/gi,
-    /allergen\s*:?\s*([^.]+\.)/gi
+    // Look for actual warning statements, not HTML
+    /warning\s*:?\s*([^.\n]{20,200}\.)/gi,
+    /caution\s*:?\s*([^.\n]{20,200}\.)/gi,
+    /allergen\s*:?\s*([^.\n]{20,200}\.)/gi,
+    /do\s+not\s+use\s+if[^.\n]{5,150}\.?/gi,
+    /consult\s+your\s+doctor[^.\n]{5,150}\.?/gi,
+    /keep\s+out\s+of\s+reach[^.\n]{5,150}\.?/gi,
+    /not\s+intended\s+for[^.\n]{5,150}\.?/gi,
+    /side\s+effects[^.\n]{5,150}\.?/gi
   ]
 
   for (const pattern of warningPatterns) {
-    const matches = html.match(pattern)
+    const matches = cleanText.match(pattern)
     if (matches) {
-      warnings.push(...matches.map(w => w.trim()))
+      const cleanWarnings = matches
+        .map(w => w.trim())
+        .filter(w => w.length > 15 && w.length < 300) // Filter reasonable lengths
+        .filter(w => !w.toLowerCase().includes('class=')) // Avoid HTML fragments
+        .filter(w => !w.toLowerCase().includes('div')) // Avoid HTML fragments
+        .filter(w => !/^[^a-zA-Z]*$/.test(w)) // Must contain letters
+      
+      warnings.push(...cleanWarnings)
     }
   }
 
