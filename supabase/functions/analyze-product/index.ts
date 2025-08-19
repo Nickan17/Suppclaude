@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { parseIngredientsAI, callOpenRouterWithRetry } from '../_shared/ai.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -104,36 +105,52 @@ serve(async (req) => {
   }
 })
 
-async function parseIngredients(rawIngredients: string): Promise<any[]> {
-  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'openai/gpt-4-turbo',
-      messages: [
-        {
-          role: 'system',
-          content: `Parse this supplement ingredients list into structured data. For each ingredient, extract:
-            - name (standardized)
-            - amount (with unit)
-            - is_active (vs filler/other)
-            - is_proprietary_blend_component
-            
-            Return as JSON array.`
+// Helper: robust OpenRouter call with validation & retries
+async function callOpenRouterWithRetry(payload: any, retries = 2, backoffMs = 1000): Promise<any> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json',
         },
-        {
-          role: 'user',
-          content: rawIngredients
-        }
-      ]
-    })
-  })
+        body: JSON.stringify(payload),
+      })
 
-  const result = await response.json()
-  return JSON.parse(result.choices[0].message.content)
+      if (!res.ok) {
+        throw new Error(`OpenRouter HTTP error ${res.status}`)
+      }
+
+      let data: any
+      try {
+        data = await res.json()
+      } catch (_) {
+        throw new Error('OpenRouter response was not valid JSON')
+      }
+
+      const content = data?.choices?.[0]?.message?.content
+      if (!content || typeof content !== 'string') {
+        throw new Error('OpenRouter response missing expected content field')
+      }
+
+      try {
+        return JSON.parse(content)
+      } catch (_) {
+        throw new Error('Malformed JSON content from OpenRouter')
+      }
+    } catch (err) {
+      console.error(`[openrouter] Attempt ${attempt + 1} failed:`, err)
+      if (attempt >= retries) throw err
+      await new Promise(r => setTimeout(r, backoffMs * (attempt + 1)))
+    }
+  }
+  throw new Error('OpenRouter call failed after retries')
+}
+
+// Use shared ingredient parsing via Claude-3 Opus
+async function parseIngredients(rawIngredients: string): Promise<any[]> {
+  return await parseIngredientsAI(rawIngredients)
 }
 
 async function analyzeIngredients(ingredients: any[]): Promise<any> {

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { analyzeProduct as aiAnalyzeProduct, scoreToGrade } from '../_shared/ai.ts'
 import { 
   parseProductName, 
   parseBrand, 
@@ -349,55 +350,56 @@ async function extractViaOCR(images: string[]) {
   return results
 }
 
-async function analyzeProduct(product: any) {
-  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'anthropic/claude-3-opus',
-      messages: [
-        {
-          role: 'system',
-          content: `You are a supplement analysis expert. Analyze the following product and provide:
-            1. Purity score (0-100): Check for fillers, artificial ingredients, proprietary blends
-            2. Efficacy score (0-100): Clinical dosing, proven ingredients, scientific evidence
-            3. Safety score (0-100): Third-party testing, banned substances, interactions
-            4. Value score (0-100): Price per effective serving, compared to alternatives
-            5. Overall score (weighted average)
-            6. Summary of key findings
-            7. Warnings if any
-            
-            Be critical but fair. Cite specific concerns. Penalize proprietary blends heavily.`
+// Helper: robust OpenRouter call with validation & automatic retries
+async function callOpenRouterWithRetry(payload: any, retries = 2, backoffMs = 1000): Promise<any> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json',
         },
-        {
-          role: 'user',
-          content: JSON.stringify(product)
-        }
-      ]
-    })
-  })
+        body: JSON.stringify(payload),
+      })
 
-  const aiResponse = await response.json()
-  const analysis = JSON.parse(aiResponse.choices[0].message.content)
+      // Validate HTTP status
+      if (!res.ok) {
+        throw new Error(`OpenRouter HTTP error ${res.status}`)
+      }
 
-  return {
-    purity_score: analysis.purity_score,
-    efficacy_score: analysis.efficacy_score,
-    safety_score: analysis.safety_score,
-    value_score: analysis.value_score,
-    overall_score: Math.round(
-      analysis.purity_score * 0.2 +
-      analysis.efficacy_score * 0.35 +
-      analysis.safety_score * 0.25 +
-      analysis.value_score * 0.2
-    ),
-    evidence_summary: analysis.summary,
-    warnings: analysis.warnings || [],
-    clinical_evidence_grade: determineEvidenceGrade(analysis.efficacy_score)
+      // Validate JSON body
+      let data: any
+      try {
+        data = await res.json()
+      } catch (_) {
+        throw new Error('OpenRouter response was not valid JSON')
+      }
+
+      const content = data?.choices?.[0]?.message?.content
+      if (!content || typeof content !== 'string') {
+        throw new Error('OpenRouter response missing expected content field')
+      }
+
+      // Validate that content is JSON and parse it
+      try {
+        return JSON.parse(content)
+      } catch (_) {
+        throw new Error('OpenRouter content was not valid JSON')
+      }
+    } catch (err) {
+      console.error(`[openrouter] Attempt ${attempt + 1} failed:`, err)
+      if (attempt >= retries) throw err
+      // Exponential backoff between retries
+      await new Promise(r => setTimeout(r, backoffMs * (attempt + 1)))
+    }
   }
+  throw new Error('OpenRouter call failed after retries') // Fallback (should not reach)
+}
+
+// Use shared AI analysis util
+async function analyzeProduct(product: any) {
+  return await aiAnalyzeProduct(product)
 }
 
 async function findAlternatives(product: any, userId?: string) {

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { parseProductPage } from "./parser.ts"
+import { analyzeProduct, scoreToGrade } from "../_shared/ai.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,13 +27,20 @@ serve(async (req) => {
   try {
     // Check for required environment variables
     const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY')
-    const OCRSPACE_API_KEY = Deno.env.get('OCRSPACE_API_KEY')
+    const OCR_SPACE_API_KEY = Deno.env.get('OCR_SPACE_API_KEY')
+    const SCRAPFLY_API_KEY = Deno.env.get('SCRAPFLY_API_KEY')
+    // OPENROUTER_API_KEY presence will be validated inside shared AI utils
 
     if (!FIRECRAWL_API_KEY) {
       return new Response(
         JSON.stringify({ error: 'config', message: 'FIRECRAWL_API_KEY not configured' }),
         { status: 400, headers: corsHeaders }
       )
+    }
+
+    // Scrapfly API key is used as fallback, so check it early
+    if (!SCRAPFLY_API_KEY) {
+      console.warn('[firecrawl-extract] Warning: SCRAPFLY_API_KEY not configured, fallback scraping will be unavailable')
     }
 
     // Parse request body
@@ -121,6 +129,11 @@ serve(async (req) => {
       console.log(`[firecrawl-extract] Firecrawl failed: ${firecrawlError.message}, trying Scrapfly...`)
       
       try {
+        // Check if Scrapfly API key is available for fallback
+        if (!SCRAPFLY_API_KEY) {
+          throw new Error('SCRAPFLY_API_KEY not configured for fallback scraping')
+        }
+        
         const scrapflyResponse = await fetch('https://api.scrapfly.io/scrape', {
           method: 'POST',
           headers: {
@@ -171,7 +184,7 @@ serve(async (req) => {
 
     // Parse the product page
     console.log('[firecrawl-extract] Starting product page parsing...')
-    const parsed = await parseProductPage(html, url, null, { OCRSPACE_API_KEY })
+    const parsed = await parseProductPage(html, url, null, { OCR_SPACE_API_KEY })
     console.log('[firecrawl-extract] Parsing completed, OCR debug:', parsed._meta?.ocrCandidates)
 
     // Check if content is substantial enough
@@ -192,6 +205,17 @@ serve(async (req) => {
       )
     }
 
+    // Run AI analysis on extracted product
+    console.log('[firecrawl-extract] Running AI analysis via OpenRouter...')
+    const analysis = await analyzeProduct({
+      title: parsed.title,
+      ingredients: parsed.ingredients,
+      ingredients_raw: parsed.ingredients_raw,
+      supplementFacts: parsed.supplementFacts?.raw || '',
+      warnings: parsed.warnings,
+      url
+    })
+
     // Build successful response
     const response = {
       title: parsed.title,
@@ -199,6 +223,16 @@ serve(async (req) => {
       ingredients_raw: parsed.ingredients_raw,
       supplementFacts: { raw: parsed.supplementFacts?.raw || '' },
       warnings: parsed.warnings,
+      analysis: {
+        purity_score: analysis.purity_score,
+        efficacy_score: analysis.efficacy_score,
+        safety_score: analysis.safety_score,
+        value_score: analysis.value_score,
+        overall_score: analysis.overall_score,
+        summary: analysis.summary,
+        warnings: analysis.warnings,
+        grade: scoreToGrade(analysis.overall_score)
+      },
       _meta: {
         chain: parsed._meta?.chain || 'unknown',
         scrapingSource,
@@ -234,3 +268,5 @@ serve(async (req) => {
     )
   }
 })
+
+// shared AI utilities now imported, helper functions removed

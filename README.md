@@ -17,7 +17,7 @@ A comprehensive full-stack application that helps users make informed decisions 
 # Set secrets for edge functions
 npx supabase secrets set \
   FIRECRAWL_API_KEY=<YOUR_FIRECRAWL_KEY> \
-  OCRSPACE_API_KEY=<YOUR_OCR_SPACE_KEY> \
+  OCR_SPACE_API_KEY=<YOUR_OCR_SPACE_KEY> \
   OPENROUTER_API_KEY=<YOUR_OPENROUTER_KEY> \
   --project-ref <YOUR_PROJECT_REF>
 ```
@@ -175,7 +175,7 @@ npx expo build:web
 
 ### Required for Edge Functions
 - `FIRECRAWL_API_KEY`: Web scraping service
-- `OCRSPACE_API_KEY`: OCR for supplement facts images
+- `OCR_SPACE_API_KEY`: OCR for supplement facts images
 - `OPENROUTER_API_KEY`: AI analysis service
 - `SUPABASE_URL`: Your Supabase project URL
 - `SUPABASE_SERVICE_ROLE_KEY`: For database operations

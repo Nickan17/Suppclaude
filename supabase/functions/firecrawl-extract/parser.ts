@@ -23,7 +23,7 @@ export interface ParsedProduct {
 }
 
 interface OCROptions {
-  OCRSPACE_API_KEY?: string
+  OCR_SPACE_API_KEY?: string
 }
 
 export async function parseProductPage(
@@ -193,7 +193,7 @@ export async function parseProductPage(
   // Try OCR if we have minimal content and OCR is available
   const factsTokens = supplementFacts.split(/\s+/).length
   // Force OCR for debugging Magnum product
-  const shouldTryOCR = options.OCRSPACE_API_KEY && 
+  const shouldTryOCR = options.OCR_SPACE_API_KEY && 
                        (factsTokens < 5 || ingredients.length < 2 || url.includes('magnumsupps.com'))
 
   console.log(`[parser] Content analysis - factsTokens: ${factsTokens}, ingredients: ${ingredients.length}`)
@@ -243,7 +243,7 @@ export async function parseProductPage(
     meta.ocrTried = true
     
     try {
-      const ocrResult = await extractWithOCR(html, options.OCRSPACE_API_KEY!, url)
+      const ocrResult = await extractWithOCR(html, options.OCR_SPACE_API_KEY!, url)
       meta.ocrCandidates = ocrResult.candidates
       meta.ocrDebug = ocrResult.debug
     } catch (error) {
