@@ -326,8 +326,12 @@ export const useStore = create<AppState>((set, get) => ({
         console.log('Demo user detected, skipping database update')
       }
       
-      // Track analytics
-      Analytics.trackOnboardingCompleted(user.id)
+      // Track analytics safely
+      try {
+        Analytics.trackOnboardingCompleted(user.id)
+      } catch (analyticsError) {
+        console.warn('Analytics tracking failed:', analyticsError)
+      }
       
       // Update local state regardless of user type
       set({ 

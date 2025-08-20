@@ -54,7 +54,7 @@ export const DemographicsStep: React.FC<DemographicsStepProps> = ({ data, onNext
   const isComplete = form.gender && form.activity_level
 
   return (
-    <View style={{paddingBottom: 80}}>
+    <View style={styles.container}>
       {/* Age */}
       <View style={styles.section}>
         <Text style={styles.label}>Age</Text>
@@ -170,7 +170,7 @@ export const DemographicsStep: React.FC<DemographicsStepProps> = ({ data, onNext
         onPress={handleNext}
         disabled={!isComplete}
         activeOpacity={0.8}
-        style={{marginTop: 40, marginBottom: 60}}
+        style={styles.nextButton}
       >
         <LinearGradient
           colors={
@@ -178,15 +178,11 @@ export const DemographicsStep: React.FC<DemographicsStepProps> = ({ data, onNext
               ? [theme.colors.primary, '#FF8E8E']
               : [theme.colors.border, theme.colors.border]
           }
-          style={{
-            borderRadius: 50,
-            paddingVertical: 16,
-            alignItems: 'center',
-          }}
+          style={styles.gradientButton}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
         >
-          <Text style={{color: 'white', fontSize: 16, fontWeight: '600'}}>Continue</Text>
+          <Text style={styles.nextButtonText}>Continue</Text>
         </LinearGradient>
       </TouchableOpacity>
     </View>
@@ -195,7 +191,7 @@ export const DemographicsStep: React.FC<DemographicsStepProps> = ({ data, onNext
 
 const styles = StyleSheet.create({
   container: {
-    paddingBottom: theme.spacing.xxl,
+    paddingBottom: 40,
   },
   section: {
     marginBottom: theme.spacing.xl,
@@ -313,14 +309,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   nextButton: {
-    borderRadius: theme.radii.full,
-    paddingVertical: theme.spacing.md,
+    marginTop: 40,
+    marginBottom: 60,
+  },
+  gradientButton: {
+    borderRadius: 50,
+    paddingVertical: 16,
     alignItems: 'center',
-    marginTop: theme.spacing.xl,
   },
   nextButtonText: {
     color: 'white',
-    fontSize: theme.typography.body.fontSize,
+    fontSize: 16,
     fontWeight: '600',
   },
 })

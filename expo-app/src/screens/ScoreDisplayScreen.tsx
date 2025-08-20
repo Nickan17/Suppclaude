@@ -99,25 +99,33 @@ export const ScoreDisplayScreen: React.FC = () => {
     )
   }
 
-  // Use BasicProductDisplay for products without scores
-  const hasScore = (product?.overall_score && product.overall_score > 0) || 
-                   (product?.analysis?.overall_score && product.analysis.overall_score > 0)
+  // FORCE ScoreDisplay if we have ANY meaningful data
+  // Check for extracted ingredients, nutrition facts, or analysis
+  const hasScore = Boolean(
+    (product?.overall_score && Number(product.overall_score) > 0) || 
+    (product?.analysis?.overall_score && Number(product.analysis.overall_score) > 0) ||
+    (product?.analysis && Object.keys(product.analysis).length > 0) ||
+    (product?.ingredients && product.ingredients.length > 0) ||
+    (product?.supplement_facts && product.supplement_facts.length > 5) ||
+    (product?.supplementFacts?.raw && product.supplementFacts.raw.length > 5) ||
+    (product?.fromUrl === true) // Force for URL-based analysis
+  )
   
   console.log('ScoreDisplayScreen - Product received:', product)
   console.log('ScoreDisplayScreen - Has score check:', hasScore)
-  console.log('ScoreDisplayScreen - Overall score:', product?.overall_score)
-  console.log('ScoreDisplayScreen - Analysis overall score:', product?.analysis?.overall_score)
+  console.log('ScoreDisplayScreen - Overall score:', product?.overall_score, typeof product?.overall_score)
+  console.log('ScoreDisplayScreen - Analysis overall score:', product?.analysis?.overall_score, typeof product?.analysis?.overall_score)
+  console.log('ScoreDisplayScreen - Analysis object:', product?.analysis)
+  console.log('ScoreDisplayScreen - Will use:', hasScore ? 'ScoreDisplay' : 'BasicProductDisplay')
   
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       {hasScore ? (
-        <ScrollView showsVerticalScrollIndicator={false}>
-          <ScoreDisplay
-            product={product}
-            onAddToStack={handleAddToStack}
-            onFindAlternatives={handleFindAlternatives}
-          />
-        </ScrollView>
+        <ScoreDisplay
+          product={product}
+          onAddToStack={handleAddToStack}
+          onFindAlternatives={handleFindAlternatives}
+        />
       ) : (
         <BasicProductDisplay
           product={product}

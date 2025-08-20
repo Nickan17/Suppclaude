@@ -1,6 +1,7 @@
 import 'react-native-url-polyfill/auto'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { createClient } from '@supabase/supabase-js'
+import { SupplementAnalysis } from '../types/supplement-analysis'
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || ''
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || ''
@@ -74,6 +75,7 @@ export interface Product {
   extraction_method?: string
   extraction_confidence?: number
   raw_extraction_data?: any
+  analysis?: SupplementAnalysis
 }
 
 export interface UserProduct {

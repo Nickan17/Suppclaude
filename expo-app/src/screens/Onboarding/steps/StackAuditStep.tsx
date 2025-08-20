@@ -73,7 +73,13 @@ export const StackAuditStep: React.FC<StackAuditStepProps> = ({ data, onNext }) 
 
   const handleNext = () => {
     console.log('StackAuditStep: handleNext called with form data:', form)
-    onNext(form)
+    // Force a valid form object even if empty
+    const safeForm: StackData = {
+      products: form.products || [],
+      biggestPainPoint: form.biggestPainPoint || 'none'
+    }
+    console.log('StackAuditStep: Sending safe form data:', safeForm)
+    onNext(safeForm)
   }
 
   const renderStars = (rating: number, onChange: (rating: number) => void) => {
