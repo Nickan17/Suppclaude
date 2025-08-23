@@ -119,20 +119,29 @@ export const ScoreDisplayScreen: React.FC = () => {
   console.log('ScoreDisplayScreen - Will use:', hasScore ? 'ScoreDisplay' : 'BasicProductDisplay')
   
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      {hasScore ? (
-        <ScoreDisplay
-          product={product}
-          onAddToStack={handleAddToStack}
-          onFindAlternatives={handleFindAlternatives}
-        />
-      ) : (
-        <BasicProductDisplay
-          product={product}
-          onAddToStack={handleAddToStack}
-          onFindAlternatives={handleFindAlternatives}
-        />
-      )}
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={true}
+        scrollEnabled={true}
+        bounces={true}
+        keyboardShouldPersistTaps="handled"
+      >
+        {hasScore ? (
+          <ScoreDisplay
+            product={product}
+            onAddToStack={handleAddToStack}
+            onFindAlternatives={handleFindAlternatives}
+          />
+        ) : (
+          <BasicProductDisplay
+            product={product}
+            onAddToStack={handleAddToStack}
+            onFindAlternatives={handleFindAlternatives}
+          />
+        )}
+      </ScrollView>
     </SafeAreaView>
   )
 }
@@ -147,5 +156,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: theme.colors.background,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    minHeight: '150%',
+    paddingBottom: 300,
+    flexGrow: 1,
   },
 })

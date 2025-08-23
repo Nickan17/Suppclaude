@@ -51,7 +51,7 @@ export const BasicProductDisplay: React.FC<BasicProductDisplayProps> = ({
   onAnalyzeWithAI,
 }) => {
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         {/* Grade Badge - Only show if we have analysis */}
@@ -251,7 +251,7 @@ export const BasicProductDisplay: React.FC<BasicProductDisplayProps> = ({
           </TouchableOpacity>
         )}
       </View>
-    </ScrollView>
+    </View>
   )
 }
 
@@ -259,6 +259,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
+  },
+  scrollView: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
+  scrollContent: {
+    paddingBottom: 80,
   },
   header: {
     alignItems: 'center',
